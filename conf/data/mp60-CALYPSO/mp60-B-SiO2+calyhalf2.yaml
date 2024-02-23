@@ -1,6 +1,5 @@
-root_path: ${oc.env:HOME}/Data/Caly-MP/v1
+root_path: /path/to/data/mp60-CALYPSO/230617/mp60-B-SiO2+calyhalf2
 prop:
-  - enthalpy_per_atom
   - pressure
 num_targets:
   - 1
@@ -10,14 +9,14 @@ graph_method: crystalnn
 lattice_scale_method: scale_length
 preprocess_workers: 120
 readout: mean
-max_atoms: 60
+max_atoms: 120
 otf_graph: false
 eval_model_name: calypso
 conditions:
   - composition
   - pressure
 
-train_max_epochs: 200
+train_max_epochs: 600
 early_stopping_patience: 100000
 teacher_forcing_max_epoch: 100
 
@@ -71,5 +70,5 @@ datamodule:
 
   batch_size:
     train: 128
-    val: 128
-    test: 128
+    val:   128
+    test:  128

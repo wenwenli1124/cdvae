@@ -1,76 +1,35 @@
-# Crystal Diffusion Variational AutoEncoder
+# Cond-CDVAE
 
-This software implementes Crystal Diffusion Variational AutoEncoder (CDVAE), which generates the periodic structure of materials.
+This software implementes Conditional Crystal Diffusion Variational AutoEncoder (Cond-CDVAE), which generates the periodic structure of materials under user-defined chemical compositions and external pressure.
 
-It has several main functionalities:
-
-- Generate novel, stable materials by learning from a dataset containing existing material structures.
-- Generate materials by optimizing a specific property in the latent space, i.e. inverse design.
-
-[[Paper]](https://arxiv.org/abs/2110.06197) [[Datasets]](data/)
-
-<p align="center">
-  <img src="assets/illustrative.png" /> 
-</p>
-
-<p align="center">
-  <img src="assets/Tm4Ni4As4.gif" width="200">
-</p>
-
-
-## Table of Contents
-
-- [Installation](#installation)
-- [Datasets](#datasets)
-- [Training CDVAE](#training-cdvae)
-- [Generating materials](#generating-materials)
-- [Evaluating model](#evaluating-model)
-- [Authors and acknowledgements](#authors-and-acknowledgements)
-- [Citation](#citation)
-- [Contact](#contact)
+[[Paper]]() [[Datasets]](data/)
 
 ## Installation
 
-The easiest way to install prerequisites is via [conda](https://conda.io/docs/index.html).
+### Install with pip
 
-### GPU machines
+(torch2.0.1+cu118 for example)
 
-Run the following command to install the environment:
-```bash
-conda env create -f env.yml
-```
-Activate the conda environment with `conda activate cdvae`.
-
-Install this package with `pip install -e .`.
-
-### Faster conda installation
-
-We've noticed that the above command to install the dependencies from `env.yml` can take very long. A faster way to install the required packages is:
-```bash
-conda env create -f env_sub.yml
-conda activate cdvae
-conda install ipywidgets jupyterlab matplotlib pylint
-conda install -c conda-forge matminer=0.7.3 nglview pymatgen=2020.12.31
-# Downgrade to fix a known issue with pytorch
-python3 -m pip install setuptools==59.5.0
-pip install -e .
-```
-
-### CPU-only machines
+It is suggested to use `conda` (by [conda](https://conda.io/docs/index.html) or [miniconda](https://docs.conda.io/en/latest/miniconda.html)) to create a python>=3.8(3.11 is suggested) environment first, then run the following `pip` commands in this environment.
 
 ```bash
-conda env create -f env.cpu.yml
-conda activate cdvae
+pip install torch -i https://download.pytorch.org/whl/cu118
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.0.0+cu118.html
+pip install -r requirements.txt
 pip install -e .
 ```
 
 ### Setting up environment variables
 
-Make a copy of the `.env.template` file and rename it to `.env`. Modify the following environment variables in `.env`.
+Modify the following environment variables in file by `vi .env`.
 
-- `PROJECT_ROOT`: path to the folder that contains this repo
-- `HYDRA_JOBS`: path to a folder to store hydra outputs
-- `WABDB`: path to a folder to store wabdb outputs
+- `PROJECT_ROOT`: path to the folder that contains this repo, can get by `pwd`
+- `HYDRA_JOBS`: path to a folder to store hydra outputs, if in this repo, git hash can be record by hydra
+
+```env
+export PROJECT_ROOT=/path/to/this/project
+export HYDRA_JOBS=/path/to/this/project/log
+```
 
 ## Datasets
 
@@ -78,36 +37,82 @@ All datasets are directly available on `data/` with train/valication/test splits
 
 Find more about these datasets by going to our [Datasets](data/) page.
 
-## Training CDVAE
+## Training Cond-CDVAE
 
-### Training without a property predictor
+Example:
 
-To train a CDVAE, run the following command:
-
-```
-python cdvae/run.py data=perov expname=perov
-```
-
-To use other datasets, use `data=carbon` and `data=mp_20` instead. CDVAE uses [hydra](https://hydra.cc) to configure hyperparameters, and users can modify them with the command line or configure files in `conf/` folder.
-
-After training, model checkpoints can be found in `$HYDRA_JOBS/singlerun/YYYY-MM-DD/expname`.
-
-### Training with a property predictor
-
-Users can also additionally train an MLP property predictor on the latent space, which is needed for the property optimization task:
-
-```
-python cdvae/run.py data=perov expname=perov model.predict_property=True
+```bash
+python cdvae/run.py \
+    model=vae/vae_nocond \  # vae is default
+    project=... group=... expname=... \
+    data=... \  # file name without .yml suffix in ./conf/data/
+    optim.optimizer.lr=1e-4 optim.lr_scheduler.min_lr=1e-5 \
+    data.teacher_forcing_max_epoch=250 data.train_max_epochs=4000 \
+    model.beta=0.01 \
+    model.fc_num_layers=1 model.latent_dim=... \
+    model.hidden_dim=... model.lattice_dropout=... \  # MLP part
+    model.hidden_dim=... model.latent_dim=... \
+    [model.conditions.cond_dim=...] \
 ```
 
-The name of the predicted propery is defined in `data.prop`, as in `conf/data/perov.yaml` for Perov-5.
+For more control options see `./conf`.
+
+To train with multi-gpu:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1 python cdvae/run.py \
+    ... \  # can take the same options as before
+    train.pl_trainer.devices=2 \
+    +train.pl_trainer.strategy=ddp_find_unused_parameters_true
+```
+
+Cond-CDVAE uses [hydra](https://hydra.cc) to configure hyperparameters, and users can
+modify them with the command line or configure files in `conf/` folder.
+
+After training, model checkpoints can be found in `$HYDRA_JOBS/singlerun/project/group/expname`.
+
+### Training Cond-CDVAE-4M on MP60-CALYPSO
+
+**First to modify `root_path` key in file `conf/data/caly-mp/230617/mp60-B-SiO2+calyhalf2.yaml`**
+
+```bash
+# Train
+HYDRA_FULL_ERROR=1 nohup python -u cdvae/run.py \
+  model=vae data=mp60-CALYPSO/mp60-B-SiO2+calyhalf2 project=cond_cdvae group=mp60-calypso expname=model-4m \
+  optim.optimizer.lr=1e-4 optim.lr_scheduler.min_lr=1e-5 model.zgivenc.no_mlp=False model.predict_property=False model.encoder.hidden_channels=128 model.encoder.int_emb_size=128 model.encoder.out_emb_channels=128 model.latent_dim=128 model.encoder.num_blocks=4 model.decoder.num_blocks=4 model.conditions.types.pressure.n_basis=80 model.conditions.types.pressure.stop=5 \
+  train.pl_trainer.devices=3 +train.pl_trainer.strategy=ddp_find_unused_parameters_true model.prec=32 \
+  data.teacher_forcing_max_epoch=60 > model-4m.log 2>&1 &
+```
+
+### Training Cond-CDVAE-86M on MP60-CALYPSO
+
+**Remember to modify `root_path` key in file `conf/data/caly-mp/230617/mp60-B-SiO2+calyhalf2.yaml`**
+
+```bash
+# Train
+HYDRA_FULL_ERROR=1 nohup python -u cdvae/run.py \
+  model=vae data=mp60-CALYPSO/mp60-B-SiO2+calyhalf2 project=cond_cdvae group=mp60-calypso expname=model-86m \
+  optim.optimizer.lr=1e-4 optim.lr_scheduler.min_lr=1e-5 model.zgivenc.no_mlp=False model.predict_property=False model.encoder.hidden_channels=512 model.encoder.int_emb_size=256 model.encoder.out_emb_channels=512 model.latent_dim=512 model.encoder.num_blocks=6 model.decoder.hidden_dim=512 model.decoder.num_blocks=6 model.conditions.types.pressure.n_basis=80 model.conditions.types.pressure.stop=5 \
+  train.pl_trainer.devices=3 +train.pl_trainer.strategy=ddp_find_unused_parameters_true model.prec=32 \
+  data.teacher_forcing_max_epoch=60 > model-86m.log 2>&1 &
+```
 
 ## Generating materials
 
-To generate materials, run the following command:
+To evaluate reconstruction performance:
 
+```bash
+python scripts/evaluate.py --model_path MODEL_PATH --tasks recon
 ```
-python scripts/evaluate.py --model_path MODEL_PATH --tasks recon gen opt
+
+To generate materials:
+
+```bash
+python scripts/evaluate.py --model_path MODEL_PATH --tasks gen \
+    [--formula=H2O/--train_data=*.pkl] \
+    [--pressure=100] \  # if pressure conditioned
+    [--label=xxx] \
+    --batch_size=50
 ```
 
 `MODEL_PATH` will be the path to the trained model. Users can choose one or several of the 3 tasks:
@@ -128,7 +133,7 @@ python scripts/evaluate.py --model_path MODEL_PATH --tasks recon gen opt
 
 To compute evaluation metrics, run the following command:
 
-```
+```bash
 python scripts/compute_metrics.py --root_path MODEL_PATH --tasks recon gen opt
 ```
 
@@ -136,27 +141,16 @@ python scripts/compute_metrics.py --root_path MODEL_PATH --tasks recon gen opt
 
 ## Authors and acknowledgements
 
-The software is primary written by [Tian Xie](www.txie.me), with signficant contributions from [Xiang Fu](https://xiangfu.co/).
+The software is primary written by Xiaoshan Luo based on [CDVAE](https://github.com/txie-93/cdvae).
 
 The GNN codebase and many utility functions are adapted from the [ocp-models](https://github.com/Open-Catalyst-Project/ocp) by the [Open Catalyst Project](https://opencatalystproject.org/). Especially, the GNN implementations of [DimeNet++](https://arxiv.org/abs/2011.14115) and [GemNet](https://arxiv.org/abs/2106.08903) are used.
 
 The main structure of the codebase is built from [NN Template](https://github.com/lucmos/nn-template).
 
-For the datasets, [Perov-5](data/perov_5) is curated from [Perovksite water-splitting](https://cmr.fysik.dtu.dk/cubic_perovskites/cubic_perovskites.html), [Carbon-24](data/carbon_24) is curated from [AIRSS data for carbon at 10GPa](https://archive.materialscloud.org/record/2020.0026/v1), [MP-20](data/mp_20) is curated from [Materials Project](https://materialsproject.org).
-
 ## Citation
 
 Please consider citing the following paper if you find our code & data useful.
 
-```
-@article{xie2021crystal,
-  title={Crystal Diffusion Variational Autoencoder for Periodic Material Generation},
-  author={Xie, Tian and Fu, Xiang and Ganea, Octavian-Eugen and Barzilay, Regina and Jaakkola, Tommi},
-  journal={arXiv preprint arXiv:2110.06197},
-  year={2021}
-}
+```text
 ```
 
-## Contact
-
-Please leave an issue or reach out to Tian Xie (txie AT csail DOT mit DOT edu) if you have any questions.
