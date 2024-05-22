@@ -3,7 +3,9 @@
 MP60-CALYPSO contains 670979 locally stable structures with pressure labeled from Materials Project and CALYPSO community.
 Please refer to XXX for more details.
 
-Download the train-val-test splited files from []().
+The data will soon be available at calypso.cn
+
+~~Download the train-val-test splited files from~~
 
 There contains three feather files which can be read by pandas.
 

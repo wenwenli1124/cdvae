@@ -1,0 +1,312 @@
+project: cond_cdvae_2
+group: mp20
+expname: 4090-md-lr4
+core:
+  version: 0.0.1
+  tags:
+  - ${model._target_}
+data:
+  root_path: /home/share203/Data/reorganize-230617/mp20
+  prop:
+  - pressure
+  num_targets:
+  - 1
+  niggli: true
+  primitive: false
+  graph_method: crystalnn
+  lattice_scale_method: scale_length
+  preprocess_workers: 120
+  readout: mean
+  max_atoms: 120
+  otf_graph: false
+  eval_model_name: calypso
+  conditions:
+  - composition
+  - pressure
+  train_max_epochs: 800
+  early_stopping_patience: 100000
+  teacher_forcing_max_epoch: 60
+  datamodule:
+    _target_: cdvae.pl_data.datamodule.CrystDataModule
+    datasets:
+      train:
+        _target_: cdvae.pl_data.dataset.CrystDataset
+        name: Formation energy train
+        path: ${data.root_path}/train.feather
+        save_path: ${data.root_path}/train.pkl
+        force_process: false
+        prop: ${data.prop}
+        niggli: ${data.niggli}
+        primitive: ${data.primitive}
+        graph_method: ${data.graph_method}
+        lattice_scale_method: ${data.lattice_scale_method}
+        preprocess_workers: ${data.preprocess_workers}
+      val:
+      - _target_: cdvae.pl_data.dataset.CrystDataset
+        name: Formation energy val
+        path: ${data.root_path}/val.feather
+        save_path: ${data.root_path}/val.pkl
+        force_process: false
+        prop: ${data.prop}
+        niggli: ${data.niggli}
+        primitive: ${data.primitive}
+        graph_method: ${data.graph_method}
+        lattice_scale_method: ${data.lattice_scale_method}
+        preprocess_workers: ${data.preprocess_workers}
+      test:
+      - _target_: cdvae.pl_data.dataset.CrystDataset
+        name: Formation energy test
+        path: ${data.root_path}/test.feather
+        save_path: ${data.root_path}/test.pkl
+        force_process: false
+        prop: ${data.prop}
+        niggli: ${data.niggli}
+        primitive: ${data.primitive}
+        graph_method: ${data.graph_method}
+        lattice_scale_method: ${data.lattice_scale_method}
+        preprocess_workers: ${data.preprocess_workers}
+    num_workers:
+      train: 0
+      val: 0
+      test: 0
+    batch_size:
+      train: 128
+      val: 128
+      test: 128
+logging:
+  val_check_interval: 5
+  progress_bar_refresh_rate: 20
+  wandb:
+    name: ${expname}
+    project: ${project}
+    entity: null
+    log_model: true
+    mode: online
+    group: ${group}
+  wandb_watch:
+    log: all
+    log_freq: 500
+  lr_monitor:
+    logging_interval: step
+    log_momentum: false
+model:
+  encoder:
+    _target_: cdvae.pl_modules.gnn.DimeNetPlusPlusWrap
+    num_targets: ${data.num_targets}
+    hidden_channels: 128
+    num_blocks: 4
+    int_emb_size: 128
+    basis_emb_size: 8
+    out_emb_channels: 128
+    num_spherical: 7
+    num_radial: 6
+    otf_graph: ${data.otf_graph}
+    cutoff: 7.0
+    max_num_neighbors: 20
+    envelope_exponent: 5
+    num_before_skip: 1
+    num_after_skip: 2
+    num_output_layers: 3
+    readout: ${data.readout}
+    outact: tanh
+  decoder:
+    _target_: cdvae.pl_modules.decoder.GemNetTDecoder
+    num_blocks: 4
+    hidden_dim: 128
+    latent_dim: ${model.latent_dim}
+    max_neighbors: ${model.max_neighbors}
+    radius: ${model.radius}
+    scale_file: ${oc.env:PROJECT_ROOT}/cdvae/pl_modules/gemnet/gemnet-dT.json
+  _target_: cdvae.pl_modules.model.CDVAE
+  prec: 32
+  latent_dim: 128
+  lattice_recall:
+    in_dim: null
+    hidden_dim: 256
+    fc_num_layers: 1
+    dropout: 0.2
+    out_dim: 6
+  cost_natom: 1.0
+  cost_coord: 10.0
+  cost_type: 1.0
+  cost_lattice: 10.0
+  cost_composition: 1.0
+  cost_edge: 10.0
+  cost_property: 1.0
+  beta: 0.01
+  teacher_forcing_lattice: true
+  teacher_forcing_max_epoch: ${data.teacher_forcing_max_epoch}
+  max_neighbors: 20
+  radius: 7.0
+  sigma_begin: 10.0
+  sigma_end: 0.01
+  type_sigma_begin: 5.0
+  type_sigma_end: 0.01
+  num_noise_level: 50
+  predict_property: false
+  prop_recall:
+    _target_: cdvae.pl_modules.recall_head.PropRecall
+    prop_keys: ${data.prop}
+    types:
+      energy_per_atom:
+        _target_: cdvae.pl_modules.recall_head.RecallScalar
+        prop_name: energy_per_atom
+        in_dim: null
+        hidden_dim: 32
+        fc_num_layers: 3
+        out_dim: 1
+      enthalpy_per_atom:
+        _target_: cdvae.pl_modules.recall_head.RecallScalar
+        prop_name: enthalpy_per_atom
+        in_dim: null
+        hidden_dim: 32
+        fc_num_layers: 3
+        out_dim: 1
+  agg_c:
+    _target_: cdvae.pl_modules.conditioning.ZGivenC
+    mode: concat
+    no_mlp: true
+  zgivenc:
+    _target_: cdvae.pl_modules.conditioning.ZGivenC
+    zdim: ${model.latent_dim}
+    mode: concat
+    no_mlp: false
+    hidden_dim: 64
+    fc_num_layers: 3
+    out_dim: 64
+  conditions:
+    _target_: cdvae.pl_modules.conditioning.MultiEmbedding
+    cond_keys: ${data.conditions}
+    types:
+      composition:
+        _target_: cdvae.pl_modules.conditioning.CompositionEmbedding
+        n_out: 50
+        reduce: mean
+      energy_per_atom:
+        _target_: cdvae.pl_modules.conditioning.ScalarEmbedding
+        prop_name: energy_per_atom
+        batch_norm: false
+        no_expansion: false
+        n_basis: 50
+        start: -2
+        stop: 2
+        trainable_gaussians: false
+        no_mlp: true
+        hidden_dim: ${model.encoder.hidden_channels}
+        fc_num_layers: 5
+        n_out: ${model.encoder.hidden_channels}
+      enthalpy_per_atom:
+        _target_: cdvae.pl_modules.conditioning.ScalarEmbedding
+        prop_name: enthalpy_per_atom
+        batch_norm: false
+        no_expansion: false
+        n_basis: 50
+        start: -2
+        stop: 2
+        trainable_gaussians: false
+        no_mlp: true
+        hidden_dim: ${model.encoder.hidden_channels}
+        fc_num_layers: 5
+        n_out: ${model.encoder.hidden_channels}
+      energy:
+        _target_: cdvae.pl_modules.conditioning.ScalarEmbedding
+        prop_name: energy
+        batch_norm: false
+        no_expansion: false
+        n_basis: 50
+        start: -2
+        stop: 2
+        trainable_gaussians: false
+        no_mlp: true
+        hidden_dim: ${model.encoder.hidden_channels}
+        fc_num_layers: 5
+        n_out: ${model.encoder.hidden_channels}
+      enthalpy:
+        _target_: cdvae.pl_modules.conditioning.ScalarEmbedding
+        prop_name: enthalpy
+        batch_norm: false
+        no_expansion: false
+        n_basis: 50
+        start: -2
+        stop: 2
+        trainable_gaussians: false
+        no_mlp: true
+        hidden_dim: ${model.encoder.hidden_channels}
+        fc_num_layers: 5
+        n_out: ${model.encoder.hidden_channels}
+      formation_energy_per_atom:
+        _target_: cdvae.pl_modules.conditioning.ScalarEmbedding
+        prop_name: formation_energy_per_atom
+        batch_norm: false
+        no_expansion: false
+        n_basis: 50
+        start: -2
+        stop: 2
+        trainable_gaussians: false
+        no_mlp: true
+        hidden_dim: ${model.encoder.hidden_channels}
+        fc_num_layers: 5
+        n_out: ${model.encoder.hidden_channels}
+      pressure:
+        _target_: cdvae.pl_modules.conditioning.ScalarEmbedding
+        prop_name: pressure
+        batch_norm: false
+        no_expansion: false
+        n_basis: 80
+        start: -2
+        stop: 5
+        trainable_gaussians: false
+        no_mlp: true
+        hidden_dim: ${model.encoder.hidden_channels}
+        fc_num_layers: 5
+        n_out: ${model.encoder.hidden_channels}
+      spgno:
+        _target_: cdvae.pl_modules.conditioning.ScalarEmbedding
+        prop_name: spgno
+        batch_norm: false
+        no_expansion: false
+        n_basis: 50
+        start: -1
+        stop: 1
+        trainable_gaussians: false
+        no_mlp: true
+        hidden_dim: ${model.encoder.hidden_channels}
+        fc_num_layers: 5
+        n_out: ${model.encoder.hidden_channels}
+optim:
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    factor: 0.6
+    patience: 30
+    min_lr: 1.0e-05
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+    betas:
+    - 0.9
+    - 0.999
+    eps: 1.0e-08
+    weight_decay: 0
+  use_lr_scheduler: true
+train:
+  deterministic: false
+  random_seed: 42
+  pl_trainer:
+    fast_dev_run: false
+    accelerator: gpu
+    devices: 2
+    max_epochs: ${data.train_max_epochs}
+    accumulate_grad_batches: 1
+    num_sanity_val_steps: 2
+    gradient_clip_val: 0.5
+    gradient_clip_algorithm: value
+    enable_progress_bar: false
+    strategy: ddp_find_unused_parameters_true
+  monitor_metric: val_loss
+  monitor_metric_mode: min
+  early_stopping:
+    patience: ${data.early_stopping_patience}
+    verbose: false
+  model_checkpoints:
+    save_top_k: 1
+    verbose: false
