@@ -2,7 +2,7 @@
 
 This software implementes Conditional Crystal Diffusion Variational AutoEncoder (Cond-CDVAE), which generates the periodic structure of materials under user-defined chemical compositions and external pressure.
 
-[[Paper]]() [[Datasets]](data/)
+[[Paper]](https://arxiv.org/abs/2403.10846) [[Datasets]](data/)
 
 ## Installation
 
@@ -139,6 +139,14 @@ python scripts/compute_metrics.py --root_path MODEL_PATH --tasks recon gen opt
 
 `MODEL_PATH` will be the path to the trained model. All evaluation metrics will be saved in `eval_metrics.json`.
 
+## Results
+
+The trained model checkpoints of Cond-CDVAE-4M are located at [results_archive-v1.0.0/model-4m](https://github.com/ixsluo/cond-cdvae/tree/main/results_archive-v1.0.0/model-4m).
+
+The predicted structures for boron, lithium, and silica are located at [results_archive-v1.0.0/model-4m/mp60+calypso
+/eval_gen](https://github.com/ixsluo/cond-cdvae/tree/main/results_archive-v1.0.0/model-4m/mp60%2Bcalypso/eval_gen).
+
+
 ## Authors and acknowledgements
 
 The software is primary written by Xiaoshan Luo based on [CDVAE](https://github.com/txie-93/cdvae).
@@ -152,5 +160,6 @@ The main structure of the codebase is built from [NN Template](https://github.co
 Please consider citing the following paper if you find our code & data useful.
 
 ```text
+Luo, et al., Deep learning generative model for crystal structure prediction, arXiv: 2403.10846, 2024
 ```
 

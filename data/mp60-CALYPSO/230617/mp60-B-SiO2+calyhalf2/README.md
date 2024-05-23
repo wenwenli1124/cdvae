@@ -3,7 +3,7 @@
 MP60-CALYPSO contains 670979 locally stable structures with pressure labeled from Materials Project and CALYPSO community.
 Please refer to XXX for more details.
 
-The data will soon be available at calypso.cn
+The data will soon be available at [CALYPSO website](http://calypso.cn).
 
 ~~Download the train-val-test splited files from~~
 
