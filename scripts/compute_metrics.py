@@ -104,12 +104,13 @@ class Crystal(object):
 
 class RecEval(object):
 
-    def __init__(self, pred_crys, gt_crys, stol=0.5, angle_tol=10, ltol=0.3):
+    def __init__(self, pred_crys, gt_crys, mp_id, stol=0.5, angle_tol=10, ltol=0.3):
         assert len(pred_crys) == len(gt_crys)
         self.matcher = StructureMatcher(
             stol=stol, angle_tol=angle_tol, ltol=ltol)
         self.preds = pred_crys
         self.gts = gt_crys
+        self.mp_id = mp_id
 
     def get_match_rate_and_rms(self):
         def process_one(pred, gt, is_valid):
@@ -125,14 +126,20 @@ class RecEval(object):
         validity = [c.valid for c in self.preds]
 
         rms_dists = []
-        for i in tqdm(range(len(self.preds))):
-            rms_dists.append(process_one(
-                self.preds[i], self.gts[i], validity[i]))
+        match_id = []
+        for i, mp_id in tqdm(zip(range(len(self.preds)), self.mp_id), ncols=79, total=len(self.preds)):
+            rms_dist = process_one(self.preds[i], self.gts[i], validity[i])
+            rms_dists.append(rms_dist)
+            if rms_dist is not None:
+                match_id.append(mp_id)
         rms_dists = np.array(rms_dists)
         match_rate = sum(rms_dists != None) / len(self.preds)
         mean_rms_dist = rms_dists[rms_dists != None].mean()
-        return {'match_rate': match_rate,
-                'rms_dist': mean_rms_dist}
+        return {
+            'match_rate': match_rate,
+            'rms_dist': mean_rms_dist,
+            'match_id': match_id,
+        }
 
     def get_metrics(self):
         return self.get_match_rate_and_rms()
@@ -297,12 +304,12 @@ def main(args):
 
     if 'recon' in args.tasks:
         recon_file_path = get_file_paths(args.root_path, 'recon', args.label)
-        crys_array_list, true_crystal_array_list = get_crystal_array_list(
-            recon_file_path)
+        crys_array_list, true_crystal_array_list = get_crystal_array_list(recon_file_path)
         pred_crys = p_map(lambda x: Crystal(x), crys_array_list)
         gt_crys = p_map(lambda x: Crystal(x), true_crystal_array_list)
 
-        rec_evaluator = RecEval(pred_crys, gt_crys)
+        mp_id = load_data(recon_file_path)["input_data_batch"].mp_id
+        rec_evaluator = RecEval(pred_crys, gt_crys, mp_id=mp_id)
         recon_metrics = rec_evaluator.get_metrics()
         all_metrics.update(recon_metrics)
 
