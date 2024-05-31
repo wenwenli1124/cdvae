@@ -1,5 +1,6 @@
 import copy
 import itertools
+import json
 import warnings
 from pathlib import Path
 
@@ -823,6 +824,15 @@ def get_scaler_from_data_list(data_list, key):
     return scaler
 
 
+def parse_prop(item: str | float):
+    if isinstance(item, (float, int, np.generic)):
+        return item
+    elif isinstance(item, str):
+        return json.loads(item)
+    else:
+        raise ValueError(f"Parse prop failed: {item}")
+
+
 def preprocess(input_file, num_workers, niggli, primitive, graph_method, prop_list):
     suffix = Path(input_file).suffix
     if suffix == '.csv':
@@ -834,7 +844,7 @@ def preprocess(input_file, num_workers, niggli, primitive, graph_method, prop_li
         crystal_str = row['cif']
         crystal = build_crystal(crystal_str, niggli=niggli, primitive=primitive)
         graph_arrays = build_crystal_graph(crystal, graph_method)
-        properties = {k: row[k] for k in prop_list if k in row.keys()}
+        properties = {k: parse_prop(row[k]) for k in prop_list if k in row.keys()}
         result_dict = {
             'mp_id': row['material_id'],
             'cif': crystal_str,
