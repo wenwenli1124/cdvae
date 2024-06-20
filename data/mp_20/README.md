@@ -33,5 +33,19 @@ Please consider citing the following paper:
 }
 ```
 
+The `*.feather` files are patched files with columns
+
+- material_id
+- formation_energy_per_atom
+- band_gap
+- pretty_formula
+- e_above_hull
+- elements
+- cif
+- spacegroup.number
+- pressure
+- formula
+
+
 
 
