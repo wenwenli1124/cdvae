@@ -273,12 +273,13 @@ def generation(
             sampled_atom_types = torch.tensor(sampled_atom_types, device=model.device)
             sampled_num_atoms = torch.tensor(sampled_num_atoms, device=model.device)
         # return `sampled_atom_types` and `sampled_num_atoms`
-        conditions = {
-            k: torch.tensor(
-                [v] * batch_size, device=model.device, dtype=torch.get_default_dtype()
-            ).view(-1, 1)
-            for k, v in norm_target_props.items()
-        }
+        conditions = {}
+        for k, v in norm_target_props.items():
+            val = [v] * batch_size
+            val =torch.tensor(val, device=model.device, dtype=torch.get_default_dtype())
+            if val.dim() == 1:
+                val = val.unsqueeze(1)
+            conditions[k] = val
         conditions['composition'] = (sampled_atom_types, sampled_num_atoms)
         # return conditions dict
 
@@ -534,6 +535,10 @@ def main(args):
             rel_pressure = (args.pressure - scaler.means.item()) / scaler.stds.item()
         elif prop_key == "spgno":
             rel_spgno = (args.spgno - scaler.means.item()) / scaler.stds.item()
+    if args.element_values is not None:
+        element_values = list(map(float, args.element_values.split(",")))
+    else:
+        element_values = []
 
     ld_kwargs = SimpleNamespace(
         n_step_each=args.n_step_each,
@@ -616,6 +621,7 @@ def main(args):
                 'enthalpy': args.enthalpy,
                 'pressure': rel_pressure,
                 'spgno': rel_spgno,
+                'element_values': element_values,
             },
         )
 
@@ -755,6 +761,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--spgno', default=1, type=int, help="absolute value of spg number, default 1"
     )  # TODO: change to number range, and record the generated target
+    parser.add_argument(
+        '--element_values', default=None, help="elem-elem coordinate number for alloy",
+    )
 
     args = parser.parse_args()
 
