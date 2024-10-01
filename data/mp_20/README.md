@@ -6,6 +6,20 @@ MP-20 contains 45231 general inorganic materials that differ in both structure a
 
 MP-20 includes almost all experimentally stable materials from the Materials Project (Jain et al., 2013) with unit cells including at most 20 atoms. We only include materials that are originally from ICSD (Belsky et al., 2002) to ensure the experimental stability, and these materials represent the majority of experimentally known materials with at most 20 atoms in unit cells.
 
+** The `*.feather` files are patched files with columns **
+
+- material_id
+- formation_energy_per_atom
+- band_gap
+- pretty_formula
+- e_above_hull
+- elements
+- cif
+- spacegroup.number
+- pressure
+- formula
+
+
 ## Stability of curated materials
 
 All 45231 are experimentally synthesizable. All materials are at local energy minimum after DFT relaxation. In addition, we only select materials with energy above the hull smaller than 0.08 eV/atom and formation energy smaller than 2 eV/atom.
@@ -32,20 +46,4 @@ Please consider citing the following paper:
   publisher={American Institute of PhysicsAIP}
 }
 ```
-
-The `*.feather` files are patched files with columns
-
-- material_id
-- formation_energy_per_atom
-- band_gap
-- pretty_formula
-- e_above_hull
-- elements
-- cif
-- spacegroup.number
-- pressure
-- formula
-
-
-
 
