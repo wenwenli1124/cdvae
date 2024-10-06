@@ -13,7 +13,7 @@ This software implementes Conditional Crystal Diffusion Variational AutoEncoder 
 It is suggested to use `conda` (by [conda](https://conda.io/docs/index.html) or [miniconda](https://docs.conda.io/en/latest/miniconda.html)) to create a python>=3.8(3.11 is suggested) environment first, then run the following `pip` commands in this environment.
 
 ```bash
-pip install torch==2.0.1 -i https://download.pytorch.org/whl/cu118
+pip install torch==2.0.1
 pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.0.0+cu118.html
 pip install lightning torch==2.0.1
 pip install -r requirements.txt
