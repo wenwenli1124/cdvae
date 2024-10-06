@@ -372,10 +372,10 @@ class CDVAE(BaseModule):
                 "cond/cond_z_mean": wandb.Histogram(cond_z.detach().cpu().mean(0)),
                 "cond/cond_z_std": wandb.Histogram(cond_z.detach().cpu().std(0)),
             }
-            wandb.log(
-                log_cond_dict,
-                step=self.global_step,
-            )
+            # wandb.log(
+            #     log_cond_dict,
+            #     step=self.global_step,
+            # )
 
         # pred lattice from cond_z
         # (B, 6)                 (B, 3)        (B, 3)
